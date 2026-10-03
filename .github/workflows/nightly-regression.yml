@@ -1,0 +1,86 @@
+name: Nightly Regression
+
+on:
+  schedule:
+    - cron: "0 2 * * *"   # 2:00 AM UTC every night
+  workflow_dispatch:        # allow manual trigger
+
+jobs:
+  nightly:
+    name: Full Regression Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: fulfillsentry
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:test@localhost:5432/fulfillsentry
+      ORDER_SERVICE_URL: http://localhost:8001
+      INVENTORY_SERVICE_URL: http://localhost:8002
+      CARRIER_SERVICE_HOST: localhost:50051
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Initialize database
+        run: psql $DATABASE_URL -f backend/init_db.sql
+
+      - name: Generate gRPC stubs
+        run: bash scripts/generate_protos.sh
+
+      - name: Start all services
+        run: |
+          uvicorn backend.order_service.main:app --host 0.0.0.0 --port 8001 &
+          uvicorn backend.inventory_service.main:app --host 0.0.0.0 --port 8002 &
+          python -m backend.carrier_service.server &
+          sleep 5
+
+      - name: Run full regression with parallel workers
+        run: |
+          pytest tests/ \
+            -v \
+            -n auto \
+            --tb=long \
+            --junitxml=reports/nightly-results.xml \
+            --html=reports/nightly-report.html \
+            --self-contained-html
+
+      - name: Sync results to TestRail
+        if: always()
+        run: python testrail/sync_results.py reports/nightly-results.xml --run-name "Nightly $(date +%Y-%m-%d)"
+        env:
+          TESTRAIL_URL: ${{ secrets.TESTRAIL_URL }}
+          TESTRAIL_USER: ${{ secrets.TESTRAIL_USER }}
+          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
+          TESTRAIL_PROJECT_ID: ${{ secrets.TESTRAIL_PROJECT_ID }}
+          TESTRAIL_SUITE_ID: ${{ secrets.TESTRAIL_SUITE_ID }}
+        continue-on-error: true
+
+      - name: Upload nightly report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-report-${{ github.run_number }}
+          path: reports/
+          retention-days: 30

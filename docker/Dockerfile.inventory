@@ -1,0 +1,8 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir fastapi uvicorn strawberry-graphql[fastapi] sqlalchemy psycopg2-binary
+COPY backend/inventory_service ./backend/inventory_service
+COPY backend/__init__.py ./backend/__init__.py
+ENV PYTHONPATH=/app
+EXPOSE 8002
+CMD ["uvicorn", "backend.inventory_service.main:app", "--host", "0.0.0.0", "--port", "8002"]

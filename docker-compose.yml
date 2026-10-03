@@ -1,0 +1,81 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: fulfillsentry
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./backend/init_db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  order-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.order
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://postgres:test@postgres:5432/fulfillsentry
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  inventory-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.inventory
+    ports:
+      - "8002:8002"
+    environment:
+      DATABASE_URL: postgresql://postgres:test@postgres:5432/fulfillsentry
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  carrier-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.carrier
+    ports:
+      - "50051:50051"
+    depends_on:
+      - postgres
+
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml
+    ports:
+      - "9090:9090"
+    command: --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    volumes:
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      - prometheus

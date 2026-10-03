@@ -1,0 +1,9 @@
+FROM python:3.11-slim
+WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir fastapi uvicorn pydantic sqlalchemy psycopg2-binary
+COPY backend/order_service ./backend/order_service
+COPY backend/__init__.py ./backend/__init__.py
+ENV PYTHONPATH=/app
+EXPOSE 8001
+CMD ["uvicorn", "backend.order_service.main:app", "--host", "0.0.0.0", "--port", "8001"]

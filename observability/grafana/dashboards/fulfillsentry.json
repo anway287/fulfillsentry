@@ -1,0 +1,70 @@
+{
+  "__inputs": [],
+  "__requires": [{"type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0"}],
+  "annotations": {"list": []},
+  "description": "FulfillSentry — Test Health Dashboard",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {
+        "defaults": {"color": {"mode": "thresholds"}, "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [
+            {"color": "red", "value": null}, {"color": "yellow", "value": 80}, {"color": "green", "value": 95}
+          ]}, "unit": "percent"
+        }
+      },
+      "gridPos": {"h": 8, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "options": {"orientation": "auto", "reduceOptions": {"calcs": ["lastNotNull"]}, "showThresholdLabels": false, "showThresholdMarkers": true},
+      "title": "Test Pass Rate (%)",
+      "type": "gauge"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "options": {"reduceOptions": {"calcs": ["lastNotNull"]}, "orientation": "auto"},
+      "title": "Total Tests Run",
+      "type": "stat"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"color": {"mode": "palette-classic"}, "unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+      "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "single"}},
+      "title": "Pass / Fail / Skip over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "s"}},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "id": 4,
+      "options": {"legend": {"displayMode": "list"}, "tooltip": {"mode": "single"}},
+      "title": "Test Suite Duration (seconds)",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "Prometheus",
+      "fieldConfig": {"defaults": {"unit": "short"}},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "id": 5,
+      "options": {"legend": {"displayMode": "list"}},
+      "title": "Flaky Tests (failed then passed in same run)",
+      "type": "timeseries"
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 38,
+  "tags": ["qa", "fulfillsentry"],
+  "title": "FulfillSentry Test Health",
+  "uid": "fulfillsentry-qa",
+  "version": 1
+}

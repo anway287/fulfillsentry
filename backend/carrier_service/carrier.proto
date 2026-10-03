@@ -1,0 +1,68 @@
+syntax = "proto3";
+
+package carrier;
+
+service CarrierService {
+  rpc GetRates (RateRequest) returns (RateResponse);
+  rpc GenerateLabel (LabelRequest) returns (LabelResponse);
+  rpc ValidateAddress (AddressRequest) returns (AddressResponse);
+}
+
+message Dimensions {
+  float length_in = 1;
+  float width_in  = 2;
+  float height_in = 3;
+}
+
+message RateRequest {
+  string origin_zip      = 1;
+  string destination_zip = 2;
+  float  weight_lbs      = 3;
+  Dimensions dimensions  = 4;
+  string service_level   = 5; // GROUND, EXPRESS, OVERNIGHT
+}
+
+message CarrierRate {
+  string carrier        = 1;
+  string service        = 2;
+  float  rate_usd       = 3;
+  int32  estimated_days = 4;
+}
+
+message RateResponse {
+  repeated CarrierRate rates    = 1;
+  string               cheapest = 2;
+  string               fastest  = 3;
+}
+
+message LabelRequest {
+  string order_id        = 1;
+  string carrier         = 2;
+  string service         = 3;
+  string origin_zip      = 4;
+  string destination_zip = 5;
+  float  weight_lbs      = 6;
+  string recipient_name  = 7;
+  string recipient_addr  = 8;
+}
+
+message LabelResponse {
+  bool   success         = 1;
+  string tracking_number = 2;
+  string label_url       = 3;
+  string carrier         = 4;
+  string error_message   = 5;
+}
+
+message AddressRequest {
+  string line1    = 1;
+  string city     = 2;
+  string state    = 3;
+  string zip_code = 4;
+}
+
+message AddressResponse {
+  bool   valid           = 1;
+  string normalized_zip  = 2;
+  string error_message   = 3;
+}

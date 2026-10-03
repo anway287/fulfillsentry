@@ -1,0 +1,15 @@
+FROM python:3.11-slim
+WORKDIR /app
+RUN pip install --no-cache-dir grpcio grpcio-tools protobuf
+COPY backend/carrier_service ./backend/carrier_service
+COPY backend/__init__.py ./backend/__init__.py
+ENV PYTHONPATH=/app
+# Generate stubs at build time
+RUN python -m grpc_tools.protoc \
+    --proto_path=backend/carrier_service \
+    --python_out=backend/carrier_service/generated \
+    --grpc_python_out=backend/carrier_service/generated \
+    backend/carrier_service/carrier.proto && \
+    touch backend/carrier_service/generated/__init__.py
+EXPOSE 50051
+CMD ["python", "-m", "backend.carrier_service.server"]

@@ -1,0 +1,93 @@
+name: FulfillSentry CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: fulfillsentry
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:test@localhost:5432/fulfillsentry
+      ORDER_SERVICE_URL: http://localhost:8001
+      INVENTORY_SERVICE_URL: http://localhost:8002
+      CARRIER_SERVICE_HOST: localhost:50051
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Initialize database schema
+        run: psql $DATABASE_URL -f backend/init_db.sql
+
+      - name: Generate gRPC stubs
+        run: bash scripts/generate_protos.sh
+
+      - name: Start Order Service
+        run: |
+          uvicorn backend.order_service.main:app --host 0.0.0.0 --port 8001 &
+          sleep 3
+          curl -sf http://localhost:8001/health
+
+      - name: Start Inventory Service
+        run: |
+          uvicorn backend.inventory_service.main:app --host 0.0.0.0 --port 8002 &
+          sleep 3
+          curl -sf http://localhost:8002/health
+
+      - name: Start Carrier gRPC Service
+        run: |
+          python -m backend.carrier_service.server &
+          sleep 2
+
+      - name: Run test suite
+        run: |
+          pytest tests/ \
+            -v \
+            --tb=short \
+            --junitxml=reports/results.xml \
+            --cov=backend \
+            --cov-report=xml:reports/coverage.xml \
+            --cov-report=term-missing
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: reports/
+
+      - name: Upload coverage to Codecov
+        if: always()
+        uses: codecov/codecov-action@v4
+        with:
+          file: reports/coverage.xml
+          flags: unittests
+          fail_ci_if_error: false
